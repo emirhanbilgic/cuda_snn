@@ -8,15 +8,16 @@ import functions_basic
 import functions_basic_plots
 
 import pygame
-import brian2
 from brian2 import set_device
 import numpy as np
 from tqdm import tqdm
 import os
-import brian2genn
+# Standard Brian2 import
+from brian2 import *
 
-
-set_device('genn', use_GPU=True)
+# Enable GPU usage via Brian2CUDA
+import brian2cuda
+set_device("cuda_standalone")
            
 #TRAINNG CODE WITH LABELING PRED ACC
 if 'i' in globals():
