@@ -9,6 +9,7 @@ import functions_basic_plots
 
 import pygame
 import brian2
+from brian2 import set_device
 import numpy as np
 from tqdm import tqdm
 import os
