@@ -8,12 +8,13 @@ import functions_basic
 import functions_basic_plots
 
 import pygame
-from brian2 import set_device
 import numpy as np
 from tqdm import tqdm
 import os
 # Standard Brian2 import
 from brian2 import *
+import brian2
+from brian2 import set_device
 
 # Enable GPU usage via Brian2CUDA
 import brian2cuda
