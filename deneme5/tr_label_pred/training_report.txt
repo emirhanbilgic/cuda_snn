@@ -1,0 +1,12 @@
+Final cumulative accuracy over all seen images: 25.56%
+Total images seen for training: 100
+Accuracy for the last batch of 10 images: 30.00%
+Accuracy for batch 1: 20.00%
+Accuracy for batch 2: 20.00%
+Accuracy for batch 3: 20.00%
+Accuracy for batch 4: 10.00%
+Accuracy for batch 5: 20.00%
+Accuracy for batch 6: 20.00%
+Accuracy for batch 7: 50.00%
+Accuracy for batch 8: 40.00%
+Accuracy for batch 9: 30.00%

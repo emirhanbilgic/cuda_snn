@@ -1,0 +1,11 @@
+Total Images Seen	Image Index in the Loop	Index as in Image Labels	True Label	Predicted Label	Correct Classification	Cumulative Accuracy
+31	30	30	0	3	False	19.05%
+32	31	31	8	9	False	18.18%
+33	32	32	4	1	False	17.39%
+34	33	33	9	9	True	20.83%
+35	34	34	5	9	False	20.00%
+36	35	35	1	6	False	19.23%
+37	36	36	8	9	False	18.52%
+38	37	37	7	9	False	17.86%
+39	38	38	8	6	False	17.24%
+40	39	39	8	8	True	20.00%

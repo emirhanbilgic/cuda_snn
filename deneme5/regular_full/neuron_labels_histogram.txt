@@ -1,0 +1,11 @@
+Label -1: 198
+Label 0: 35
+Label 1: 10
+Label 2: 25
+Label 3: 16
+Label 4: 21
+Label 5: 22
+Label 6: 18
+Label 7: 9
+Label 8: 31
+Label 9: 15

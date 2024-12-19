@@ -1,0 +1,4 @@
+Overall Accuracy: 41.84%
+Total Images: 98
+Correct Predictions: 41
+Incorrect Predictions: 57
