@@ -19,19 +19,27 @@ from brian2 import set_device
 # Enable GPU usage via Brian2CUDA
 import brian2cuda
 set_device("cuda_standalone")
+           
+#TRAINNG CODE WITH LABELING PRED ACC
+if 'i' in globals():
+    del i
+if 'j' in globals():
+    del j
 
-# RUN CONFIG
+
+#run config
 run_dir = "deneme5"
-image_count = 100
+image_count=100
 exc_neuron_num = 400
-tr_label_pred = True
-label_predict_range = 10
-size_selected = 28 # input is 28x28
+tr_label_pred=True
+label_predict_range=10
+size_selected = 28 #input is 28x28
 max_rate = 63.75
 seed_train = True
 start_index = 0 # start index of train
-skip_norm = False # skips the normalization algorithm if True
+skip_norm = True # skips the normalization algoritm if True
 normalization_val = 78
+
 
 # Parameters for excitatory and inhibitory neurons
 E_rest_exc  = -65 * brian2.mV
@@ -65,6 +73,7 @@ w_ei_ = 10.4
 w_ie_ = 17
 tau_apost2_ee = 40 * brian2.ms  # Time constant for apost2_ee
 
+    
 # Neuron equations for excitatory and inhibitory populations
 ng_eqs_exc = """
 dv/dt = ((E_rest_exc - v) + g_e*(E_exc_for_exc - v) + g_i*(E_inh_for_exc - v))/tau_lif_exc : volt (unless refractory)
@@ -136,23 +145,14 @@ syn_inh_exc = brian2.Synapses(neuron_group_inh, neuron_group_exc, model="w_ie : 
 syn_inh_exc.connect("i != j")
 syn_inh_exc.w_ie = w_ie_
 
-# Create monitors
+#weight_mon = StateMonitor(syn_input_exc, 'w_ee', record=False)
 spike_mon_exc = brian2.SpikeMonitor(neuron_group_exc)
 net = brian2.Network(neuron_group_exc, neuron_group_inh, image_input, syn_input_exc, syn_exc_inh, syn_inh_exc, spike_mon_exc)
-
-# Load image input rates and labels
-image_input_rates, image_labels, image_intensities = functions_basic.get_spiking_rates_and_labels(
-    use_test_data_mnist=False,
-    image_count=image_count,
-    seed_data=seed_train,
-    size_selected=size_selected,
-    start_index=start_index
-)
-
-# **Perform optional normalization before running the simulation**
-if not skip_norm:
-    functions_basic.divisive_weight_normalization(syn_input_exc, population_exc, normalization_value=normalization_val)
-
+image_input_rates, image_labels, image_intensities = functions_basic.get_spiking_rates_and_labels(use_test_data_mnist = False,
+                                                                                  image_count=image_count,
+                                                                                  seed_data=seed_train,
+                                                                                  size_selected=size_selected,
+                                                                                  start_index=start_index)
 all_spike_counts_per_image = []
 max_rate_current_image = max_rate
 predicted_labels = []
@@ -161,33 +161,38 @@ cumulative_accuracies = []
 image_indexes_in_loop = []
 spike_data_within_training = []
 
-# Use tqdm to display progress
+# Using tqdm to display progress and status while processing images
 with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pbar:
+    # Initialize spike counts for excitatory neurons
     previous_spike_counts = np.zeros(population_exc, dtype=int)
     
     # Loop through each image
     for image_index_in_loop in range(image_count):
-        current_image_index = start_index + image_index_in_loop
-        tot_seen_images = image_index_in_loop + 1
-        image_retries = 0
-        successful_training = False
+        current_image_index = start_index + image_index_in_loop  # Absolute index of the current image
+        tot_seen_images = image_index_in_loop + 1  # Total images processed so far
+        image_retries = 0  # Retry counter for current image
+        successful_training = False  # Flag to indicate whether training is successful
         
+        # Retry until the image causes sufficient spiking activity
         while not successful_training:
-            previous_spike_counts = spike_mon_exc.count[:]
-            image_input.rates = image_input_rates[image_index_in_loop] * brian2.Hz
+            previous_spike_counts = spike_mon_exc.count[:]  # Record previous spike counts
+            image_input.rates = image_input_rates[image_index_in_loop] * brian2.Hz  # Set input rates for the current image
             
-            # Note: No normalization here - done before the simulation started
-            
-            # Run the simulation for this image
+            # Optional divisive weight normalization to keep weights in range
+            if not skip_norm:
+                functions_basic.divisive_weight_normalization(syn_input_exc, population_exc, normalization_value=normalization_val)
+    
+            # Run the simulation for a specified duration
             net.run(350 * brian2.ms)
             
-            # Calculate spike counts
+            # Calculate spike counts after running the simulation
             current_spike_counts = spike_mon_exc.count[:]
             spike_counts_current_image = current_spike_counts - previous_spike_counts
-            max_spike_count = np.max(spike_counts_current_image)
-            neurons_with_max_spikes = np.where(spike_counts_current_image == max_spike_count)[0]
-            sum_spike_count = np.sum(spike_counts_current_image)
+            max_spike_count = np.max(spike_counts_current_image)  # Maximum spike count by any neuron
+            neurons_with_max_spikes = np.where(spike_counts_current_image == max_spike_count)[0]  # Neurons with the max spike count
+            sum_spike_count = np.sum(spike_counts_current_image)  # Total spike count
             
+            # Update progress bar with current image details
             if (tr_label_pred == False or label_predict_range is None) or (tot_seen_images <= label_predict_range):
                 pbar.set_description(
                     f"Image #{current_image_index}, #{image_index_in_loop} in loop,"
@@ -195,24 +200,29 @@ with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pb
                     f"Max Spikes: {max_spike_count}, Neurons: {neurons_with_max_spikes.tolist()}, Current Max Rate: {max_rate_current_image}"
                 )
             
+            # Check if the spike count is sufficient
             if sum_spike_count >= 5:
-                successful_training = True
-                all_spike_counts_per_image.append(spike_counts_current_image.copy())
+                successful_training = True  # Training succeeded
+                all_spike_counts_per_image.append(spike_counts_current_image.copy())  # Save spike counts
                 
                 # Handle label prediction and saving
                 if tr_label_pred and label_predict_range is not None:
+                    # Save labels and spikes after every 'label_predict_range' images
                     if (tot_seen_images % label_predict_range == 0):
                         print("Running Task X: save labels and images for every label_predict_range images")
-                        start_index_train_labeling = tot_seen_images - label_predict_range
-                        end_index_train_labeling = tot_seen_images
+                        start_index_train_labeling = tot_seen_images - label_predict_range  # Start index of the range
+                        end_index_train_labeling = tot_seen_images  # End index of the range
                         
+                        # Slice labels and spike data for the range
                         image_labels_within_training = image_labels[start_index_train_labeling:end_index_train_labeling]
                         spike_data_within_training = all_spike_counts_per_image[-label_predict_range:]
                         
+                        # Save the spike data for this range
                         spike_data_within_training_path = f'{run_dir}/tr_label_pred/spike_data_{int(start_index_train_labeling+1)}_{end_index_train_labeling}.npz'
                         os.makedirs(os.path.dirname(spike_data_within_training_path), exist_ok=True)
                         np.savez(spike_data_within_training_path, labels=image_labels_within_training, spike_counts=spike_data_within_training)
                         
+                        # Assign neuron labels based on spike data
                         spike_data_with_labels_folder_path = f'{run_dir}/tr_label_pred/spike_data_w_labels_{int(start_index_train_labeling+1)}_{end_index_train_labeling}'
                         os.makedirs(spike_data_with_labels_folder_path, exist_ok=True)
                         assigned_labels_within_training_path = functions_basic.load_and_assign_neuron_labels(
@@ -221,18 +231,21 @@ with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pb
                             population_exc=population_exc
                         )
                     
+                    # Predict labels for images beyond the initial range
                     if tot_seen_images > label_predict_range:
-                        start_index_train_predict = tot_seen_images - 1
-                        end_index_train_predict = tot_seen_images - 1 + label_predict_range
+                        start_index_train_predict = tot_seen_images - 1  # Start index for predictions
+                        end_index_train_predict = tot_seen_images - 1 + label_predict_range  # End index for predictions
                         
+                        # Get predictions for the current image
                         predictions = functions_basic.get_predictions_for_current_image(
                             spike_counts_current_image=spike_counts_current_image,
                             assigned_labels_path=assigned_labels_within_training_path
                         )
 
                         true_label = image_labels[image_index_in_loop]
-                        predicted_label = predictions[0]
+                        predicted_label = predictions[0]  # Top predicted label
 
+                        # Save predictions incrementally
                         if (tot_seen_images - 1) % label_predict_range == 0:
                             prediction_folder_within_training_path = f'{spike_data_with_labels_folder_path}/predictions_{int(start_index_train_predict+1)}_to_{end_index_train_predict}'
                             os.makedirs(prediction_folder_within_training_path, exist_ok=True)
@@ -248,6 +261,7 @@ with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pb
                             label_predict_range
                         )
 
+                        # Calculate and finalize cumulative accuracy reports
                         cumulative_accuracies, cumulative_accuracy = functions_basic.calculate_cumulative_accuracy(
                             prediction_folder_within_training_path,
                             predicted_labels,
@@ -264,6 +278,7 @@ with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pb
                             start_index
                         )
 
+                        # Update progress bar with accuracy details
                         pbar.set_description(
                             f"Image #{current_image_index} (Loop Index: {image_index_in_loop}, True Label: {true_label}, "
                             f"Predicted: {predicted_label}) | Cumulative Accuracy: {cumulative_accuracy:.2f}% | "
@@ -271,68 +286,74 @@ with tqdm(total=image_count, desc="Processing Images", dynamic_ncols=True) as pb
                             f"Neurons with Max Spikes: {neurons_with_max_spikes.tolist()} | Current Max Rate: {max_rate_current_image}"
                         )
 
+                # Reset input rates and run a short refractory simulation
                 image_input.rates = 0 * brian2.Hz
                 net.run(150 * brian2.ms)
-                max_rate_current_image = max_rate
-                pbar.update(1)
+                max_rate_current_image = max_rate  # Reset the maximum rate for the next image
+                pbar.update(1)  # Update the progress bar
             else:
+                # Retry with increased input rate if spiking activity is insufficient
                 image_retries += 1
-                max_rate_current_image += 32
+                max_rate_current_image += 32  # Increment the rate
                 image_input_rates[image_index_in_loop] = functions_basic.increase_spiking_rates(
                     image_input_rates[image_index_in_loop], max_rate_current_image
                 )
-                image_input.rates = 0 * brian2.Hz
-                net.run(150 * brian2.ms)
+                image_input.rates = 0 * brian2.Hz  # Reset rates
+                net.run(150 * brian2.ms)  # Short refractory simulation
+
 
 last_image_index = current_image_index
 functions_basic.save_simulation_state(run_dir,
-                                      last_image_index,
-                                      syn_input_exc,
-                                      neuron_group_exc,
-                                      neuron_group_inh)
+                                last_image_index,
+                                syn_input_exc,
+                                neuron_group_exc,
+                                neuron_group_inh)
 
 all_spike_counts_per_image = np.array(all_spike_counts_per_image)
 spike_counts_per_neuron_with_retries = spike_mon_exc.count[:]
 
 functions_basic.save_spike_data(run_dir=run_dir,
-                                image_labels=image_labels,
-                                all_spike_counts_per_image=all_spike_counts_per_image,
-                                spike_mon_exc_count=spike_counts_per_neuron_with_retries)
+                                      image_labels=image_labels,
+                                      all_spike_counts_per_image=all_spike_counts_per_image,
+                                      spike_mon_exc_count=spike_counts_per_neuron_with_retries)
 
 if tr_label_pred and label_predict_range is not None:
+    
     output_dir = f"{run_dir}/tr_label_pred"
     os.makedirs(output_dir, exist_ok=True)
     
+    # Define file paths for saving
     predicted_labels_path = f'{output_dir}/predicted_labels.npy'
     image_labels_in_loop_path = f'{output_dir}/image_labels_in_loop.npy'
     image_indexes_in_loop_path = f'{output_dir}/image_indexes_in_loop.npy'
     cumulative_accuracies_path = f'{output_dir}/cumulative_accuracies.npy'
     
+    # Save the specified range of data
     np.save(predicted_labels_path, np.array(predicted_labels))
     np.save(image_labels_in_loop_path, np.array(image_labels_in_loop))
     np.save(image_indexes_in_loop_path, np.array(image_indexes_in_loop))
     np.save(cumulative_accuracies_path, np.array(cumulative_accuracies))
 
     functions_basic.finalize_prediction_report(output_dir,
-                                               predicted_labels,
-                                               image_labels_in_loop,
-                                               cumulative_accuracies,
-                                               image_indexes_in_loop,
-                                               start_index)
+                            predicted_labels,
+                            image_labels_in_loop,
+                            cumulative_accuracies,
+                            image_indexes_in_loop,
+                            start_index)
     
     functions_basic.load_and_analyze_training_data(label_predict_range, output_dir)
-    # PLOT
+    #PLOT
     functions_basic_plots.plot_training_results(output_dir, label_predict_range)
 
-# PLOT final synapse weights
+# PLOT
 functions_basic_plots.plot_final_synapse_weights(
     run_dir=run_dir,
     population_exc=population_exc,
     size_selected=size_selected)
-
-# PLOT spike counts
+  
+#PLOT          
 functions_basic_plots.plot_spike_counts_with_cbar(run_dir=run_dir,
-                                                  population_exc=population_exc)
+                                      population_exc=population_exc)
 
 pygame.mixer.init()
 pygame.mixer.music.load("sesler/horn.mp3")
