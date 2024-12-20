@@ -23,6 +23,7 @@ set_device("cuda_standalone", build_on_run=True)
 # Get the current device and update its options
 device = get_device()
 device.build_options.update({'clean': True})  # Force a clean build
+device.build_options.update({'debug': True})
            
 #TRAINNG CODE WITH LABELING PRED ACC
 if 'i' in globals():
