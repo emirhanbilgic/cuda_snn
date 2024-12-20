@@ -14,13 +14,15 @@ import os
 # Standard Brian2 import
 from brian2 import *
 import brian2
-from brian2 import set_device, get_device
+from brian2 import set_device
 
 # Enable GPU usage via Brian2CUDA
+import brian2cuda
+
 set_device("cuda_standalone", build_on_run=True)
+# Get the current device and update its options
 device = get_device()
-device.build_options.update({'clean': True})
-device.build_options.update({'debug': True})
+device.build_options.update({'clean': True})  # Force a clean build
            
 #TRAINNG CODE WITH LABELING PRED ACC
 if 'i' in globals():
