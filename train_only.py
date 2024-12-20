@@ -42,7 +42,7 @@ size_selected = 28 #input is 28x28
 max_rate = 63.75
 seed_train = True
 start_index = 0 # start index of train
-skip_norm = True # skips the normalization algoritm if True
+skip_norm = False # skips the normalization algoritm if True
 normalization_val = 78
 
 
